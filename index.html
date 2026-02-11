@@ -1101,48 +1101,60 @@
                 this.renderFilteredRecords(filtered);
             },
 
-            syncToGoogleSheets() {
-                if (!this.state.gasUrl) {
-                    this.showAlert('❌ Please configure Google Sheets first', 'error');
-                    this.openModal('setupModal');
-                    return;
-                }
+          syncToGoogleSheets() {
 
-                if (this.state.records.length === 0) {
-                    this.showAlert('⚠️ No records to sync', 'info');
-                    return;
-                }
+    if (!this.state.gasUrl) {
+        this.showAlert("Configure Google Sheets first", "error");
+        return;
+    }
 
-                const data = this.state.records.map(record => ({
-                    date: record.date,
-                    productName: record.productName,
-                    productFor: record.productFor,
-                    productDescription: record.productDescription,
-                    remarks: record.remarks || '',
-                    imageBase64: record.image
-                }));
+    const data = this.state.records.map(r => ({
+        id: r.id,
+        date: r.date,
+        productName: r.productName,
+        productFor: r.productFor,
+        productDescription: r.productDescription,
+        remarks: r.remarks,
+        imageBase64: r.image,
+        imageLink: r.imageLink || ""
+    }));
 
-                fetch(this.state.gasUrl, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        action: 'syncRecords',
-                        sheetName: this.state.sheetName,
-                        records: data
-                    })
-                })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        this.showAlert(`✅ Synced! New: ${result.newRecords || 0}, Updated: ${result.updatedRecords || 0}, Deleted: ${result.deletedRecords || 0}`, 'success');
-                        document.getElementById('statusText').textContent = 'Connected to Google Sheets';
-                    } else {
-                        this.showAlert(`⚠️ ${result.message}`, 'info');
-                    }
-                })
-                .catch(error => {
-                    this.showAlert(`❌ Sync failed: ${error.message}`, 'error');
-                });
-            },
+    fetch(this.state.gasUrl, {
+        method: "POST",
+        body: JSON.stringify({
+            action: "syncRecords",
+            sheetName: this.state.sheetName,
+            records: data
+        })
+    })
+    .then(res => res.json())
+    .then(() => this.loadFromSheet()); },
+            
+            loadFromSheet() {
+
+    fetch(this.state.gasUrl, {
+        method: "POST",
+        body: JSON.stringify({
+            action: "getRecords",
+            sheetName: this.state.sheetName
+        })
+    })
+    .then(res => res.json())
+    .then(result => {
+
+        if (result.success) {
+            this.state.records = result.records.map(r => ({
+                ...r,
+                image: r.imageLink
+            }));
+
+            this.saveToStorage();
+            this.renderRecords();
+            this.showAlert("Synced with Master Database", "success");
+        }
+    });
+},
+
 
             exportToExcel() {
                 if (this.state.records.length === 0) {
